@@ -1,0 +1,194 @@
+version: '3.8'
+
+#=============================================================================
+# CodeReply BYOD - Local Development Environment
+#=============================================================================
+# Author: Howard (DevOps Engineer)
+# Created: April 7, 2026
+# Description: Docker Compose setup for local development and testing
+#
+# Usage:
+#   Start all services:    docker-compose up -d
+#   Stop all services:     docker-compose down
+#   View logs:             docker-compose logs -f
+#   Run migrations:        docker-compose exec db psql -U codereply -d codereply -f /migrations/001_add_subscriber_to_devices.sql
+#=============================================================================
+
+services:
+  #---------------------------------------------------------------------------
+  # PostgreSQL Database
+  #---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: codereply-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: codereply
+      POSTGRES_USER: codereply
+      POSTGRES_PASSWORD: codereply_dev_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist database data
+      - postgres_data:/var/lib/postgresql/data
+      # Mount migrations for easy access
+      - ./src/backend/database/migrations:/migrations:ro
+      # Mount seed data
+      - ./src/backend/database/seeds:/seeds:ro
+      # Custom PostgreSQL config (optional)
+      # - ./docker/postgres.conf:/etc/postgresql/postgresql.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codereply -d codereply"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codereply-network
+
+  #---------------------------------------------------------------------------
+  # Redis (Message Queue & Caching)
+  #---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: codereply-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass codereply_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "codereply_redis_password", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - codereply-network
+
+  #---------------------------------------------------------------------------
+  # pgAdmin (Database Management UI) - Optional
+  #---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: codereply-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@codereply.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - codereply-network
+    profiles:
+      - tools
+
+  #---------------------------------------------------------------------------
+  # RedisInsight (Redis Management UI) - Optional
+  #---------------------------------------------------------------------------
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: codereply-redis-insight
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - redisinsight_data:/db
+    depends_on:
+      - redis
+    networks:
+      - codereply-network
+    profiles:
+      - tools
+
+  #---------------------------------------------------------------------------
+  # Backend API Server (to be implemented)
+  #---------------------------------------------------------------------------
+  # backend:
+  #   build:
+  #     context: ./src/backend
+  #     dockerfile: Dockerfile
+  #   container_name: codereply-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     NODE_ENV: development
+  #     PORT: 3000
+  #     DATABASE_URL: postgresql://codereply:codereply_dev_password@db:5432/codereply
+  #     REDIS_URL: redis://:codereply_redis_password@redis:6379
+  #     JWT_SECRET: dev_jwt_secret_change_in_production
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./src/backend:/app
+  #     - /app/node_modules
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - codereply-network
+
+#=============================================================================
+# Volumes
+#=============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  redisinsight_data:
+    driver: local
+
+#=============================================================================
+# Networks
+#=============================================================================
+networks:
+  codereply-network:
+    driver: bridge
+
+#=============================================================================
+# Usage Examples
+#=============================================================================
+# Start services:
+#   docker-compose up -d
+#
+# Start with optional tools (pgAdmin, RedisInsight):
+#   docker-compose --profile tools up -d
+#
+# View logs:
+#   docker-compose logs -f db
+#   docker-compose logs -f redis
+#
+# Run migrations:
+#   docker-compose exec db psql -U codereply -d codereply -f /migrations/001_add_subscriber_to_devices.sql
+#   docker-compose exec db psql -U codereply -d codereply -f /migrations/002_create_registration_tokens.sql
+#   docker-compose exec db psql -U codereply -d codereply -f /migrations/003_add_database_triggers.sql
+#
+# Connect to PostgreSQL:
+#   docker-compose exec db psql -U codereply -d codereply
+#
+# Connect to Redis:
+#   docker-compose exec redis redis-cli -a codereply_redis_password
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove volumes (WARNING: deletes all data):
+#   docker-compose down -v
+#
+# Access pgAdmin:
+#   http://localhost:5050
+#   Email: admin@codereply.local
+#   Password: admin
+#
+# Access RedisInsight:
+#   http://localhost:8001
+#=============================================================================

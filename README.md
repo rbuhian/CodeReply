@@ -6,9 +6,14 @@
 
 CodeReply enables third-party applications to send SMS messages programmatically through physical Android devices with SIM cards. Instead of expensive carrier-level APIs, leverage Android's native SMS capabilities for dramatically reduced costs.
 
+**NEW**: Now with **BYOD (Bring Your Own Device)** architecture - subscribers can use their own Android phones as SMS gateways!
+
 ## Quick Links
 
+- **📋 TODO Tracker**: [docs/TODO.md](docs/TODO.md) - Track all features and implementation status
 - **Technical Specification**: [CodeReply_Technical_Document.md](CodeReply_Technical_Document.md)
+- **BYOD Architecture**: [docs/BYOD_ARCHITECTURE.md](docs/BYOD_ARCHITECTURE.md)
+- **Implementation Summary**: [docs/BYOD_IMPLEMENTATION_SUMMARY.md](docs/BYOD_IMPLEMENTATION_SUMMARY.md)
 - **Project Overview**: [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)
 - **Development Guide**: [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)
 - **AI Agents Guide**: [docs/AGENTS_README.md](docs/AGENTS_README.md)
@@ -40,8 +45,31 @@ Subscriber App → REST API → Message Queue → WebSocket → Android Gateway 
 
 3. **Web Dashboard** (React)
    - Subscriber interface for monitoring
-   - Operator panel for device management
+   - Device management (add/remove devices)
    - Real-time analytics and reporting
+
+## BYOD Model (v2.0)
+
+### What Changed
+
+**Before (Operator-Controlled)**:
+- Operators owned all gateway devices
+- Subscribers only called the API
+
+**After (BYOD)**:
+- **Subscribers own their devices**: Download the app, register with API key
+- **Device isolation**: Messages only route to subscriber's own devices
+- **Self-service**: Complete control over device management
+- **Quota-based**: Device limits based on subscription plan
+
+### Quick Start for Subscribers
+
+1. **Get your API key** from the web dashboard
+2. **Download** the CodeReply Gateway app on your Android phone
+3. **Register** your device:
+   - Scan QR code from dashboard, or
+   - Enter API key manually
+4. **Start sending** SMS via the API!
 
 ## Technology Stack
 
@@ -69,9 +97,13 @@ CodeReply/
 │       ├── amy.md           # QA engineer
 │       └── bernadette.md    # API integration specialist
 ├── docs/
+│   ├── TODO.md              # 📋 Complete feature tracking
 │   ├── AGENTS_README.md     # Guide to using AI agents
 │   ├── PROJECT_OVERVIEW.md  # Project overview
-│   └── DEVELOPMENT_GUIDE.md # Development setup guide
+│   ├── DEVELOPMENT_GUIDE.md # Development setup guide
+│   ├── BYOD_ARCHITECTURE.md # BYOD system architecture
+│   ├── BYOD_IMPLEMENTATION_SUMMARY.md # Implementation roadmap
+│   └── ANDROID_BYOD_IMPLEMENTATION.md # Android implementation guide
 ├── src/
 │   ├── backend/             # Backend API server
 │   ├── android/             # Android gateway app
@@ -80,6 +112,28 @@ CodeReply/
 └── CodeReply_Technical_Document.md
 ```
 
+## Implementation Status
+
+**Version**: 2.0 (BYOD Model)
+**Status**: 🔄 In Development
+
+### Progress Overview
+
+- **Total Tasks**: 87
+- **Completed**: 15 (17%) ✅
+- **In Progress**: 7 (8%) 🔄
+- **Pending**: 65 (75%) ⏸️
+
+See [docs/TODO.md](docs/TODO.md) for detailed task tracking.
+
+### Current Phase
+
+**Phase 2-3**: Database & Backend API Implementation
+- Database migrations created ✅
+- Backend API in progress 🔄
+- Android app in progress 🔄
+- Web dashboard in progress 🔄
+
 ## Getting Started
 
 ### For Developers
@@ -87,6 +141,7 @@ CodeReply/
 1. **Read the documentation**
    - Start with [CodeReply_Technical_Document.md](CodeReply_Technical_Document.md)
    - Review [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)
+   - Check [docs/TODO.md](docs/TODO.md) for current status
 
 2. **Set up your environment**
    ```bash
@@ -140,13 +195,13 @@ CodeReply uses specialized AI agents for development assistance:
 Simply mention an agent to get help:
 
 ```
-@sheldon implement the WebSocket dispatcher
-@leonard create the foreground service
-@penny design the message log viewer
-@howard set up Docker Compose
-@raj optimize this database query
-@amy write tests for the MessageService
-@bernadette build the Node.js SDK
+@sheldon implement the message routing with subscriber filtering
+@leonard create the Android registration UI
+@penny design the device management dashboard
+@raj optimize these subscriber-scoped database queries
+@bernadette build the device registration API endpoints
+@amy write tests for cross-subscriber isolation
+@howard deploy the BYOD system to staging
 ```
 
 See [docs/AGENTS_README.md](docs/AGENTS_README.md) for detailed guidance.
@@ -221,12 +276,14 @@ $message = $client->messages->send([
 
 ## Key Features
 
-### Phase 1 (MVP)
+### Current (MVP)
 - ✅ REST API for sending SMS
-- ✅ Android gateway app with WebSocket
-- ✅ Message queue and dispatch system
-- ✅ Delivery tracking and webhooks
-- ✅ Web dashboard
+- ✅ BYOD architecture with subscriber-owned devices
+- ✅ Device registration with QR codes
+- ✅ Subscriber-scoped message routing
+- ✅ Device quota management
+- 🔄 Web dashboard (in progress)
+- 🔄 Android gateway app (in progress)
 
 ### Future Roadmap
 - Inbound SMS support
@@ -234,25 +291,6 @@ $message = $client->messages->send([
 - USSD support
 - WhatsApp Business integration
 - Advanced analytics
-
-## Development Workflow
-
-1. **Choose your component**: Backend, Android, Web, or SDK
-2. **Consult the appropriate agent**: See agent guide
-3. **Follow the development guide**: Component-specific setup
-4. **Write tests**: Use @amy for test strategy
-5. **Deploy**: Use @howard for infrastructure
-
-## Documentation
-
-- [Technical Specification](CodeReply_Technical_Document.md) - Complete system design
-- [Project Overview](docs/PROJECT_OVERVIEW.md) - High-level overview
-- [Development Guide](docs/DEVELOPMENT_GUIDE.md) - Setup and workflow
-- [AI Agents Guide](docs/AGENTS_README.md) - Working with agents
-- [Backend README](src/backend/README.md) - Backend setup
-- [Android README](src/android/README.md) - Android app setup
-- [Web README](src/web/README.md) - Frontend setup
-- [SDK README](src/sdk/README.md) - SDK development
 
 ## Benefits Over Twilio
 
@@ -262,6 +300,40 @@ $message = $client->messages->send([
 | Setup | Sign up + API key | Self-hosted deployment |
 | Control | Vendor-managed | Fully self-controlled |
 | Scalability | Elastic | Add more devices |
+| Device Ownership | Twilio infrastructure | Your own phones (BYOD) |
+
+## Security
+
+- TLS/SSL for all connections (HTTPS, WSS)
+- JWT + API key authentication
+- HMAC-SHA256 webhook signing
+- Phone number validation (E.164)
+- Rate limiting and quotas
+- Encrypted secrets storage
+- **Subscriber isolation**: Cross-subscriber access prevented at database level
+
+## Development Workflow
+
+1. **Choose your component**: Backend, Android, Web, or SDK
+2. **Check TODO.md**: See what needs to be done
+3. **Consult the appropriate agent**: See agent guide
+4. **Follow the development guide**: Component-specific setup
+5. **Write tests**: Use @amy for test strategy
+6. **Deploy**: Use @howard for infrastructure
+
+## Documentation
+
+- [TODO Tracker](docs/TODO.md) - **Start here for implementation status**
+- [Technical Specification](CodeReply_Technical_Document.md) - Complete system design
+- [BYOD Architecture](docs/BYOD_ARCHITECTURE.md) - BYOD system architecture
+- [Implementation Summary](docs/BYOD_IMPLEMENTATION_SUMMARY.md) - Implementation roadmap
+- [Project Overview](docs/PROJECT_OVERVIEW.md) - High-level overview
+- [Development Guide](docs/DEVELOPMENT_GUIDE.md) - Setup and workflow
+- [AI Agents Guide](docs/AGENTS_README.md) - Working with agents
+- [Backend README](src/backend/README.md) - Backend setup
+- [Android README](src/android/README.md) - Android app setup
+- [Web README](src/web/README.md) - Frontend setup
+- [SDK README](src/sdk/README.md) - SDK development
 
 ## Requirements
 
@@ -280,19 +352,11 @@ $message = $client->messages->send([
 - Docker support
 - CI/CD via GitHub Actions
 
-## Security
-
-- TLS/SSL for all connections (HTTPS, WSS)
-- JWT + API key authentication
-- HMAC-SHA256 webhook signing
-- Phone number validation (E.164)
-- Rate limiting and quotas
-- Encrypted secrets storage
-
 ## Support
 
 - **Documentation**: Check the docs folder
 - **AI Agents**: Use @agents for development help
+- **TODO Tracker**: See [docs/TODO.md](docs/TODO.md) for progress
 - **Technical Questions**: Review the technical document
 
 ## License
@@ -301,8 +365,8 @@ Proprietary - All rights reserved
 
 ---
 
-**Version**: 1.0.0
-**Status**: In Development
-**Last Updated**: April 2, 2026
+**Version**: 2.0 (BYOD Model)
+**Status**: 🔄 In Development (17% Complete)
+**Last Updated**: April 3, 2026
 
 Built with assistance from specialized AI agents: Sheldon, Leonard, Penny, Howard, Raj, Amy, and Bernadette.

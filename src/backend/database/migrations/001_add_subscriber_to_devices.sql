@@ -40,11 +40,6 @@ ON gateway_devices(subscriber_id);
 CREATE INDEX idx_gateway_devices_subscriber_status
 ON gateway_devices(subscriber_id, status);
 
--- Composite index for subscriber + deleted_at (for soft delete queries)
-CREATE INDEX idx_gateway_devices_subscriber_deleted
-ON gateway_devices(subscriber_id, deleted_at)
-WHERE deleted_at IS NOT NULL;
-
 -- ============================================================================
 -- PART 4: Add soft delete support
 -- ============================================================================
@@ -52,6 +47,12 @@ WHERE deleted_at IS NOT NULL;
 -- Add deleted_at column for soft delete functionality
 ALTER TABLE gateway_devices
 ADD COLUMN deleted_at TIMESTAMPTZ;
+
+-- Composite index for subscriber + deleted_at (for soft delete queries)
+-- NOTE: Created AFTER adding deleted_at column
+CREATE INDEX idx_gateway_devices_subscriber_deleted
+ON gateway_devices(subscriber_id, deleted_at)
+WHERE deleted_at IS NOT NULL;
 
 -- Add comment
 COMMENT ON COLUMN gateway_devices.deleted_at IS 'Timestamp when device was soft-deleted. NULL means device is active.';
@@ -196,4 +197,46 @@ EXECUTE FUNCTION check_device_quota();
 -- 4. Soft delete is implemented via deleted_at timestamp
 -- 5. Device quotas are enforced via database trigger
 -- 6. All indexes support common query patterns
+-- ============================================================================
+
+-- ============================================================================
+-- ROLLBACK SCRIPT
+-- ============================================================================
+-- To revert this migration, execute the following in order:
+-- WARNING: This will remove all subscriber ownership data from devices!
+-- ============================================================================
+/*
+BEGIN;
+
+-- Drop triggers
+DROP TRIGGER IF EXISTS trg_check_device_quota ON gateway_devices;
+DROP TRIGGER IF EXISTS trg_update_device_count ON gateway_devices;
+
+-- Drop functions
+DROP FUNCTION IF EXISTS check_device_quota();
+DROP FUNCTION IF EXISTS update_subscriber_device_count();
+
+-- Drop indexes
+DROP INDEX IF EXISTS idx_gateway_devices_subscriber_deleted;
+DROP INDEX IF EXISTS idx_gateway_devices_subscriber_status;
+DROP INDEX IF EXISTS idx_gateway_devices_subscriber_id;
+
+-- Drop foreign key constraint
+ALTER TABLE gateway_devices
+DROP CONSTRAINT IF EXISTS fk_gateway_devices_subscriber;
+
+-- Remove columns from gateway_devices
+ALTER TABLE gateway_devices
+DROP COLUMN IF EXISTS total_messages_failed,
+DROP COLUMN IF EXISTS total_messages_sent,
+DROP COLUMN IF EXISTS deleted_at,
+DROP COLUMN IF EXISTS subscriber_id;
+
+-- Remove columns from subscribers
+ALTER TABLE subscribers
+DROP COLUMN IF EXISTS device_count,
+DROP COLUMN IF EXISTS max_devices;
+
+COMMIT;
+*/
 -- ============================================================================
