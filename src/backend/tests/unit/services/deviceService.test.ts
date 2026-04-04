@@ -13,6 +13,7 @@ import {
   getDevice,
   updateDevice,
   deleteDevice,
+  updateHeartbeat,
 } from '../../../services/deviceService';
 import { pool } from '../../../config/database';
 import jwt from 'jsonwebtoken';
@@ -672,6 +673,116 @@ describe('DeviceService', () => {
       });
 
       await expect(deleteDevice(deviceId, subscriberId)).rejects.toThrow('Unauthorized');
+    });
+  });
+
+  describe('updateHeartbeat', () => {
+    const subscriberId = '123e4567-e89b-12d3-a456-426614174000';
+    const deviceId = 'device-uuid';
+
+    it('should update heartbeat successfully', async () => {
+      const now = new Date();
+
+      // Mock getDevice (ownership check)
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [
+          {
+            id: deviceId,
+            subscriber_id: subscriberId,
+            name: 'Device Name',
+            sim_carrier: null,
+            sim_number: null,
+            android_version: null,
+            app_version: null,
+            status: 'OFFLINE',
+            last_heartbeat: new Date(Date.now() - 300000), // 5 minutes ago
+            created_at: new Date(),
+            total_messages_sent: 0,
+            total_messages_failed: 0,
+          },
+        ],
+      });
+
+      // Mock heartbeat update query
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [
+          {
+            id: deviceId,
+            status: 'ONLINE',
+            last_heartbeat: now,
+          },
+        ],
+      });
+
+      const result = await updateHeartbeat(deviceId, subscriberId);
+
+      expect(result.deviceId).toBe(deviceId);
+      expect(result.status).toBe('ONLINE');
+      expect(result.lastHeartbeat).toEqual(now);
+      expect(result.message).toBe('Heartbeat updated successfully');
+      expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw error if device not found', async () => {
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [],
+      });
+
+      await expect(updateHeartbeat(deviceId, subscriberId)).rejects.toThrow('Device not found');
+    });
+
+    it('should throw error if device belongs to another subscriber', async () => {
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [
+          {
+            id: deviceId,
+            subscriber_id: 'different-subscriber-id',
+            name: 'Device Name',
+            sim_carrier: null,
+            sim_number: null,
+            android_version: null,
+            app_version: null,
+            status: 'ONLINE',
+            last_heartbeat: new Date(),
+            created_at: new Date(),
+            total_messages_sent: 0,
+            total_messages_failed: 0,
+          },
+        ],
+      });
+
+      await expect(updateHeartbeat(deviceId, subscriberId)).rejects.toThrow('Unauthorized');
+    });
+
+    it('should throw error if heartbeat update fails', async () => {
+      // Mock getDevice (ownership check)
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [
+          {
+            id: deviceId,
+            subscriber_id: subscriberId,
+            name: 'Device Name',
+            sim_carrier: null,
+            sim_number: null,
+            android_version: null,
+            app_version: null,
+            status: 'ONLINE',
+            last_heartbeat: new Date(),
+            created_at: new Date(),
+            total_messages_sent: 0,
+            total_messages_failed: 0,
+          },
+        ],
+      });
+
+      // Mock update returning no rows (device deleted)
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [],
+      });
+
+      await expect(updateHeartbeat(deviceId, subscriberId)).rejects.toThrow(
+        'Device not found or already deleted'
+      );
     });
   });
 });

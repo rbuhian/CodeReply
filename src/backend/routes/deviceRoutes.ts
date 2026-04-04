@@ -28,6 +28,7 @@ import {
   getDevice,
   updateDevice,
   deleteDevice,
+  updateHeartbeat,
 } from '../services/deviceService';
 import { logger } from '../utils/logger';
 
@@ -538,5 +539,83 @@ router.delete(
     }
   }
 );
+
+/**
+ * POST /v1/devices/:id/heartbeat
+ * Update device heartbeat and status
+ *
+ * Auth: Requires API key (subscriber authentication)
+ * Ownership: Device must belong to authenticated subscriber
+ *
+ * Path Parameters:
+ * - id: Device UUID
+ *
+ * Response:
+ * - deviceId: Device UUID
+ * - status: Updated device status (ONLINE)
+ * - lastHeartbeat: Timestamp of heartbeat update
+ * - message: Success message
+ *
+ * Errors:
+ * - 404: Device not found
+ * - 403: Device belongs to another subscriber
+ *
+ * Note: This endpoint updates the device's last_heartbeat timestamp and
+ * sets its status to ONLINE. The Android app should call this periodically
+ * to indicate the device is still active.
+ */
+router.post('/:id/heartbeat', authenticate, async (req, res) => {
+  const authenticatedReq = req as AuthenticatedRequest;
+  const { subscriber } = authenticatedReq;
+  const { id: deviceId } = req.params;
+
+  try {
+    const result = await updateHeartbeat(deviceId, subscriber.id);
+
+    res.json({
+      success: true,
+      data: {
+        deviceId: result.deviceId,
+        status: result.status,
+        lastHeartbeat: result.lastHeartbeat.toISOString(),
+      },
+      message: result.message,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    logger.error('Failed to update heartbeat', {
+      subscriberId: subscriber.id,
+      deviceId,
+      error: errorMessage,
+    });
+
+    // Handle specific error cases
+    if (errorMessage === 'Device not found' || errorMessage.includes('already deleted')) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Device not found',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (errorMessage.includes('Unauthorized')) {
+      res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to update this device',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to update heartbeat',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
 export default router;

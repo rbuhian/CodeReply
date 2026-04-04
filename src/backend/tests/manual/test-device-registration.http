@@ -248,6 +248,32 @@ Content-Type: application/json
 }
 
 ###
+# ============================================================================
+# DEVICE HEARTBEAT ENDPOINT
+# ============================================================================
+###
+
+###
+# 9. Device Heartbeat - Update Status
+# Update device heartbeat to mark it as ONLINE
+# Android app should call this periodically (e.g., every 5 minutes)
+POST {{baseUrl}}/v1/devices/{{deviceId}}/heartbeat
+Authorization: {{apiKey}}
+
+###
+# Heartbeat Error Cases
+###
+
+###
+# Error - Heartbeat for Non-existent Device
+POST {{baseUrl}}/v1/devices/00000000-0000-0000-0000-000000000000/heartbeat
+Authorization: {{apiKey}}
+
+###
+# Error - Heartbeat Without Authentication
+POST {{baseUrl}}/v1/devices/{{deviceId}}/heartbeat
+
+###
 # Expected Responses
 ###
 
@@ -393,4 +419,20 @@ Content-Type: application/json
 #   "error": "Forbidden",
 #   "message": "You do not have permission to access this device",
 #   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+###
+# Heartbeat Response Examples
+###
+
+# Success Response Example - Update Heartbeat (200 OK):
+# {
+#   "success": true,
+#   "data": {
+#     "deviceId": "device-uuid",
+#     "status": "ONLINE",
+#     "lastHeartbeat": "2026-04-04T10:30:00.000Z"
+#   },
+#   "message": "Heartbeat updated successfully",
+#   "timestamp": "2026-04-04T10:30:00.000Z"
 # }

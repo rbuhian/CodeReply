@@ -652,3 +652,67 @@ export async function deleteDevice(
     throw error;
   }
 }
+
+/**
+ * Heartbeat response
+ */
+export interface HeartbeatResponse {
+  deviceId: string;
+  status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
+  lastHeartbeat: Date;
+  message: string;
+}
+
+/**
+ * Update device heartbeat and status
+ * Called periodically by the device to indicate it's still alive
+ *
+ * @param deviceId - UUID of the device
+ * @param subscriberId - UUID of the subscriber (for ownership validation)
+ * @returns Updated heartbeat information
+ */
+export async function updateHeartbeat(
+  deviceId: string,
+  subscriberId: string
+): Promise<HeartbeatResponse> {
+  try {
+    // First verify ownership
+    await getDevice(deviceId, subscriberId);
+
+    // Update heartbeat and set status to ONLINE
+    const result = await pool.query(
+      `UPDATE gateway_devices
+       SET last_heartbeat = NOW(), status = 'ONLINE'
+       WHERE id = $1 AND subscriber_id = $2 AND deleted_at IS NULL
+       RETURNING id, status, last_heartbeat`,
+      [deviceId, subscriberId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Device not found or already deleted');
+    }
+
+    const row = result.rows[0];
+
+    logger.info('Device heartbeat updated', {
+      deviceId,
+      subscriberId,
+      status: row.status,
+      lastHeartbeat: row.last_heartbeat,
+    });
+
+    return {
+      deviceId: row.id,
+      status: row.status,
+      lastHeartbeat: row.last_heartbeat,
+      message: 'Heartbeat updated successfully',
+    };
+  } catch (error) {
+    logger.error('Failed to update heartbeat', {
+      deviceId,
+      subscriberId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    throw error;
+  }
+}

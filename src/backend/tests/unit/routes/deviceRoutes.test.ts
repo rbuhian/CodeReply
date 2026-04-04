@@ -690,4 +690,84 @@ describe('Device Routes', () => {
       });
     });
   });
+
+  describe('POST /v1/devices/:id/heartbeat', () => {
+    const deviceId = 'device-uuid-123';
+
+    it('should update heartbeat successfully', async () => {
+      const mockHeartbeat = {
+        deviceId,
+        status: 'ONLINE' as const,
+        lastHeartbeat: new Date('2026-04-04T10:00:00.000Z'),
+        message: 'Heartbeat updated successfully',
+      };
+
+      (deviceService.updateHeartbeat as jest.Mock).mockResolvedValue(mockHeartbeat);
+
+      const response = await request(app).post(`/v1/devices/${deviceId}/heartbeat`).expect(200);
+
+      expect(response.body).toMatchObject({
+        success: true,
+        data: {
+          deviceId,
+          status: 'ONLINE',
+          lastHeartbeat: '2026-04-04T10:00:00.000Z',
+        },
+        message: 'Heartbeat updated successfully',
+      });
+
+      expect(deviceService.updateHeartbeat).toHaveBeenCalledWith(
+        deviceId,
+        '123e4567-e89b-12d3-a456-426614174000'
+      );
+    });
+
+    it('should return 404 if device not found', async () => {
+      (deviceService.updateHeartbeat as jest.Mock).mockRejectedValue(new Error('Device not found'));
+
+      const response = await request(app).post(`/v1/devices/${deviceId}/heartbeat`).expect(404);
+
+      expect(response.body).toMatchObject({
+        error: 'Not Found',
+        message: 'Device not found',
+      });
+    });
+
+    it('should return 403 if unauthorized', async () => {
+      (deviceService.updateHeartbeat as jest.Mock).mockRejectedValue(
+        new Error('Unauthorized: Device belongs to another subscriber')
+      );
+
+      const response = await request(app).post(`/v1/devices/${deviceId}/heartbeat`).expect(403);
+
+      expect(response.body).toMatchObject({
+        error: 'Forbidden',
+        message: 'You do not have permission to update this device',
+      });
+    });
+
+    it('should return 404 if device was deleted', async () => {
+      (deviceService.updateHeartbeat as jest.Mock).mockRejectedValue(
+        new Error('Device not found or already deleted')
+      );
+
+      const response = await request(app).post(`/v1/devices/${deviceId}/heartbeat`).expect(404);
+
+      expect(response.body).toMatchObject({
+        error: 'Not Found',
+        message: 'Device not found',
+      });
+    });
+
+    it('should return 500 on unexpected error', async () => {
+      (deviceService.updateHeartbeat as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app).post(`/v1/devices/${deviceId}/heartbeat`).expect(500);
+
+      expect(response.body).toMatchObject({
+        error: 'Internal Server Error',
+        message: 'Failed to update heartbeat',
+      });
+    });
+  });
 });
