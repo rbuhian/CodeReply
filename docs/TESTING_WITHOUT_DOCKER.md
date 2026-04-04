@@ -13,6 +13,8 @@
 3. [Redis Setup](#redis-setup)
 4. [Testing Database Migrations](#testing-database-migrations)
 5. [Testing Backend API](#testing-backend-api)
+   - [Step 9: Test Validation Schemas](#step-9-test-validation-schemas-recommended)
+   - [Step 10: Test Authentication Middleware](#step-10-test-authentication-middleware-recommended)
 6. [Testing Android App](#testing-android-app)
 7. [Testing Web Dashboard](#testing-web-dashboard)
 8. [Troubleshooting](#troubleshooting)
@@ -457,6 +459,9 @@ export { app, db, redis };
 ### Step 4: Start Backend Server
 
 ```bash
+# Make sure you're in the backend directory
+cd src/backend
+
 # Start development server with hot reload
 npm run dev
 
@@ -466,49 +471,157 @@ npm run dev
 # ✅ Server running on http://localhost:3000
 ```
 
-### Step 5: Test Backend Endpoints
-
-**Using curl (Command Line):**
-
-```bash
-# Test health endpoint
-curl http://localhost:3000/health
-
-# Expected response:
-# {
-#   "status": "ok",
-#   "timestamp": "2026-04-07T...",
-#   "database": "connected",
-#   "redis": "connected"
-# }
-
-# Test database connection
-curl http://localhost:3000/test/database
-
-# Expected response:
-# {
-#   "success": true,
-#   "current_time": "2026-04-07T..."
-# }
-
-# Test Redis connection
-curl http://localhost:3000/test/redis
-
-# Expected response:
-# {
-#   "success": true,
-#   "value": "Hello from Redis"
-# }
+**Expected Output:**
+```
+========================================
+  CodeReply Backend API Server
+========================================
+  Environment: development
+  Server:      http://localhost:3000
+  Health:      http://localhost:3000/health
+  Detailed:    http://localhost:3000/health/detailed
+========================================
 ```
 
-**Using Web Browser:**
+### Step 5: Test Backend Endpoints
+
+#### **Option A: Using curl (Command Line)**
+
+**1. Basic Health Check:**
+```bash
+curl http://localhost:3000/health
+```
+
+Expected response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-04-03T11:02:36.931Z",
+  "uptime": 44.65,
+  "environment": "development",
+  "version": "2.0.0"
+}
+```
+
+**2. Detailed Health Check (Database + Redis + Memory):**
+```bash
+curl http://localhost:3000/health/detailed | python3 -m json.tool
+```
+
+Expected response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-04-03T11:02:36.931Z",
+  "uptime": 50.59,
+  "environment": "development",
+  "version": "2.0.0",
+  "services": {
+    "database": {
+      "status": "connected",
+      "info": {
+        "totalCount": 1,
+        "idleCount": 1,
+        "waitingCount": 0
+      }
+    },
+    "redis": {
+      "status": "connected",
+      "info": {
+        "redis_version": "7.0.15",
+        "redis_mode": "standalone"
+      }
+    }
+  },
+  "memory": {
+    "used": 33,
+    "total": 47,
+    "rss": 79
+  }
+}
+```
+
+**3. Test Database Connection:**
+```bash
+curl http://localhost:3000/test/database | python3 -m json.tool
+```
+
+Expected response:
+```json
+{
+  "success": true,
+  "current_time": "2026-04-03T11:02:36.931Z",
+  "postgresql_version": "18.3",
+  "pool": {
+    "totalCount": 1,
+    "idleCount": 1,
+    "waitingCount": 0
+  }
+}
+```
+
+**4. Test Redis Connection (Set/Get):**
+```bash
+curl http://localhost:3000/test/redis | python3 -m json.tool
+```
+
+Expected response:
+```json
+{
+  "success": true,
+  "test_key": "test_key_1775214163701",
+  "set_value": "Hello from Redis at 2026-04-03T11:02:43.701Z",
+  "retrieved_value": "Hello from Redis at 2026-04-03T11:02:43.701Z",
+  "match": true,
+  "redis_info": {
+    "redis_version": "7.0.15",
+    "redis_mode": "standalone"
+  }
+}
+```
+
+#### **Option B: Using Web Browser**
 
 Open these URLs in your browser:
-- http://localhost:3000/health
-- http://localhost:3000/test/database
-- http://localhost:3000/test/redis
+- **Basic Health**: http://localhost:3000/health
+- **Detailed Health**: http://localhost:3000/health/detailed
+- **Test Database**: http://localhost:3000/test/database
+- **Test Redis**: http://localhost:3000/test/redis
 
-### Step 6: Run Backend Tests
+You should see JSON responses in your browser.
+
+---
+
+### Step 6: Available Endpoints Summary
+
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/health` | GET | Basic server health check | ✅ Working |
+| `/health/detailed` | GET | Detailed health (DB + Redis + Memory) | ✅ Working |
+| `/test/database` | GET | Test PostgreSQL connection | ✅ Working |
+| `/test/redis` | GET | Test Redis set/get operations | ✅ Working |
+| `/api/v1/*` | - | API endpoints (to be implemented) | 🔄 Planned |
+
+---
+
+### Step 7: Verify Server Logs
+
+The server logs show all requests:
+
+```
+[0mGET /health [32m200[0m 3.227 ms - 122[0m
+[0mGET /health/detailed [32m200[0m 5.954 ms - 5697[0m
+[0mGET /test/database [32m200[0m 2.105 ms - 186[0m
+[0mGET /test/redis [32m200[0m 3.821 ms - 324[0m
+```
+
+- **Green `200`** = Success
+- **Yellow `404`** = Not found
+- **Red `500`** = Server error
+
+---
+
+### Step 8: Run Backend Tests (Optional)
 
 ```bash
 # Run all tests
@@ -519,6 +632,414 @@ npm run test:watch
 
 # Run tests with coverage
 npm run test:coverage
+```
+
+---
+
+### Step 9: Test Validation Schemas (Recommended)
+
+The validation schemas are the foundation for all API request validation. Testing them ensures data integrity across the entire system.
+
+**What Validation Schemas Cover:**
+- ✅ Device registration and management
+- ✅ SMS message sending and querying
+- ✅ API key authentication
+- ✅ User registration and login
+- ✅ All request parameter validation
+
+#### Quick Validation Test
+
+```bash
+cd src/backend
+
+# Run all validation tests (141 tests)
+npm test -- --testPathPattern=validation
+
+# Expected output:
+# Test Suites: 3 passed, 3 total
+# Tests:       141 passed, 141 total
+# Time:        ~30s
+```
+
+#### Run Specific Schema Tests
+
+```bash
+# Device validation only (54 tests)
+npm test -- tests/unit/validation/deviceSchemas.test.ts
+
+# Message validation only (52 tests)
+npm test -- tests/unit/validation/messageSchemas.test.ts
+
+# Authentication validation only (35 tests)
+npm test -- tests/unit/validation/authSchemas.test.ts
+```
+
+#### Run Tests with Detailed Output
+
+```bash
+# Verbose mode - see each test name
+npm test -- --testPathPattern=validation --verbose
+
+# Watch mode - auto-rerun on file changes
+npm test -- --testPathPattern=validation --watch
+
+# Coverage report
+npm test -- --testPathPattern=validation --coverage
+```
+
+#### What Gets Tested
+
+**Device Validation (deviceSchemas.test.ts):**
+```
+✓ Registration token format (cr_reg_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX)
+✓ Device name constraints (alphanumeric, spaces, hyphens, underscores)
+✓ E.164 phone number validation for SIM cards
+✓ Android version format (13.0, 13.0.1, etc.)
+✓ Semantic versioning for app version (1.0.0)
+✓ Device heartbeat status (ONLINE/OFFLINE/DEGRADED)
+✓ Battery and signal strength ranges (0-100)
+✓ Query parameter validation (pagination, sorting, filtering)
+```
+
+**Message Validation (messageSchemas.test.ts):**
+```
+✓ E.164 phone number validation using libphonenumber-js
+✓ Message body length limit (918 chars = 6 SMS segments)
+✓ Webhook URL validation and length limits
+✓ Metadata size constraints (5KB JSON stringified)
+✓ TTL (Time To Live) ranges (60-86400 seconds)
+✓ Priority levels (LOW, NORMAL, HIGH)
+✓ Batch message limits (max 100 messages)
+✓ Date range validation for message queries
+```
+
+**Authentication Validation (authSchemas.test.ts):**
+```
+✓ API key format (cr_live_* or cr_test_* with 32 chars)
+✓ Password strength requirements (min 8 chars, uppercase + lowercase + number)
+✓ Email address validation
+✓ Permission array validation
+✓ Token expiration date constraints
+✓ Password confirmation matching
+```
+
+#### Expected Test Output
+
+```
+PASS unit tests/unit/validation/deviceSchemas.test.ts (13.082 s)
+  CreateRegistrationTokenSchema
+    ✓ should accept valid registration token request (4 ms)
+    ✓ should accept empty request (label is optional) (1 ms)
+    ✓ should reject label exceeding 100 characters (5 ms)
+  RegisterDeviceSchema
+    ✓ should accept valid device registration (2 ms)
+    ✓ should accept minimal valid registration (only required fields) (1 ms)
+    ✓ should reject invalid registration token format (8 ms)
+    ... (48 more tests)
+
+PASS unit tests/unit/validation/messageSchemas.test.ts (14.422 s)
+  SendMessageSchema
+    ✓ should accept valid message with all fields (3 ms)
+    ✓ should accept minimal valid message (2 ms)
+    ✓ should reject invalid E.164 phone number (missing +) (6 ms)
+    ... (49 more tests)
+
+PASS unit tests/unit/validation/authSchemas.test.ts (25.383 s)
+  ApiKeySchema
+    ✓ should accept valid live API key (2 ms)
+    ✓ should accept valid test API key (1 ms)
+    ✓ should reject API key with wrong prefix (5 ms)
+    ... (32 more tests)
+
+Test Suites: 3 passed, 3 total
+Tests:       141 passed, 141 total
+Snapshots:   0 total
+Time:        30.444 s
+```
+
+#### Validation Files Location
+
+```
+src/backend/
+├── validation/                    # Schema definitions
+│   ├── deviceSchemas.ts          # Device validation rules
+│   ├── messageSchemas.ts         # Message validation rules
+│   └── authSchemas.ts            # Auth validation rules
+├── middleware/
+│   └── validate.ts               # Validation middleware
+└── tests/
+    └── unit/
+        └── validation/           # Validation tests
+            ├── deviceSchemas.test.ts
+            ├── messageSchemas.test.ts
+            └── authSchemas.test.ts
+```
+
+#### Manual Testing with HTTP Requests
+
+For interactive testing, use the provided HTTP file:
+
+**File**: `src/backend/tests/manual/test-validation.http`
+
+**Using VS Code REST Client extension:**
+```bash
+# 1. Install REST Client extension in VS Code
+# 2. Open: src/backend/tests/manual/test-validation.http
+# 3. Click "Send Request" above any ### section
+# 4. View response in new panel
+```
+
+**Using curl:**
+```bash
+# Test valid message
+curl -X POST http://localhost:3000/api/test/validate/message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+639171234567",
+    "body": "Hello, test message!",
+    "priority": "HIGH"
+  }'
+
+# Test invalid phone number (should return 400 error)
+curl -X POST http://localhost:3000/api/test/validate/message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "invalid-phone",
+    "body": "Test"
+  }'
+```
+
+#### Troubleshooting Validation Tests
+
+**Problem**: "Cannot find module '../../../validation/deviceSchemas'"
+
+```bash
+# Make sure you're in the backend directory
+cd src/backend
+
+# Reinstall dependencies
+npm install
+
+# Run tests again
+npm test -- --testPathPattern=validation
+```
+
+**Problem**: Tests timeout
+
+```bash
+# Increase Jest timeout
+npm test -- --testPathPattern=validation --testTimeout=60000
+```
+
+**Problem**: "SyntaxError: Cannot use import statement outside a module"
+
+```bash
+# Check tsconfig.test.json exists
+ls tsconfig.test.json
+
+# If missing, check jest.config.js has correct ts-jest configuration
+cat jest.config.js | grep ts-jest
+```
+
+---
+
+### Step 10: Test Authentication Middleware (Recommended)
+
+The authentication middleware is critical for securing all API endpoints. Testing ensures API key validation, permission checking, and rate limiting work correctly.
+
+**Why Test This?**
+- ✅ API key authentication with SHA-256 hashing
+- ✅ Plan-based permission checking (starter/professional/enterprise)
+- ✅ Redis-based rate limiting
+- ✅ Subscriber context injection
+- ✅ Ownership validation
+- ✅ Security: no API keys exposed in errors
+
+**Quick Test Command:**
+
+```bash
+# Navigate to backend directory
+cd src/backend
+
+# Run all authentication middleware tests (39 tests)
+npm test -- --testPathPattern=middleware
+
+# Expected output:
+# Test Suites: 2 passed, 2 total
+# Tests:       39 passed, 39 total
+# Time:        ~17s
+```
+
+**Run Specific Test Suites:**
+
+```bash
+# Authentication tests only (18 tests)
+npm test -- tests/unit/middleware/authenticate.test.ts
+
+# Permission checking tests only (21 tests)
+npm test -- tests/unit/middleware/requirePermissions.test.ts
+```
+
+**Advanced Testing:**
+
+```bash
+# Watch mode (re-run on file changes)
+npm test -- --testPathPattern=middleware --watch
+
+# Verbose output (see all test names)
+npm test -- --testPathPattern=middleware --verbose
+
+# Coverage report
+npm test -- --testPathPattern=middleware --coverage
+```
+
+**What's Being Tested:**
+
+**authenticate.test.ts (18 tests):**
+- ✓ Valid live and test API keys
+- ✓ Missing or invalid Authorization header
+- ✓ Malformed API keys (wrong prefix, length, characters)
+- ✓ API key not found in database
+- ✓ Inactive API keys
+- ✓ Database errors and timeouts
+- ✓ SHA-256 hashing before database lookup
+- ✓ No API key exposure in error messages
+- ✓ Optional authentication (pass through without credentials)
+
+**requirePermissions.test.ts (21 tests):**
+- ✓ Starter plan permissions (messages:*, devices:*)
+- ✓ Professional plan permissions (+ api-keys:*)
+- ✓ Enterprise plan permissions (all permissions)
+- ✓ Multiple permission requirements
+- ✓ Ownership validation (subscriberId matching)
+- ✓ Error handling and graceful degradation
+
+**Expected Test Output:**
+
+```
+PASS unit tests/unit/middleware/authenticate.test.ts (12.987 s)
+  authenticate middleware
+    Valid API Keys
+      ✓ should authenticate with valid live API key (45 ms)
+      ✓ should authenticate with valid test API key (12 ms)
+      ✓ should update last_used_at timestamp (28 ms)
+    Missing or Invalid Authorization Header
+      ✓ should reject request with missing Authorization header (8 ms)
+      ✓ should reject request with invalid Authorization format (7 ms)
+      ✓ should reject request with wrong bearer scheme (6 ms)
+      ✓ should reject request with malformed API key (wrong prefix) (5 ms)
+      ✓ should reject request with malformed API key (wrong length) (5 ms)
+      ✓ should reject request with malformed API key (invalid characters) (5 ms)
+    Invalid API Keys
+      ✓ should reject request with API key not found in database (15 ms)
+      ✓ should reject request with inactive API key (12 ms)
+    Database Errors
+      ✓ should handle database errors gracefully (10 ms)
+      ✓ should handle database query timeout (9 ms)
+    Security
+      ✓ should hash API key before database lookup (11 ms)
+      ✓ should not expose API key in error messages (10 ms)
+  optionalAuthenticate middleware
+    ✓ should pass through when no Authorization header provided (5 ms)
+    ✓ should authenticate when valid Authorization header provided (14 ms)
+    ✓ should reject when invalid API key provided (12 ms)
+
+PASS unit tests/unit/middleware/requirePermissions.test.ts (12.965 s)
+  requirePermissions middleware
+    No Authentication
+      ✓ should reject when no subscriber context (6 ms)
+    Starter Plan Permissions
+      ✓ should allow messages:read permission (7 ms)
+      ✓ should allow messages:write permission (6 ms)
+      ✓ should allow devices:read permission (5 ms)
+      ✓ should allow devices:write permission (5 ms)
+      ✓ should reject api-keys:read permission (not in starter plan) (7 ms)
+      ✓ should reject api-keys:write permission (not in starter plan) (6 ms)
+      ✓ should allow multiple permissions when all are granted (6 ms)
+      ✓ should reject when one required permission is missing (7 ms)
+    Professional Plan Permissions
+      ✓ should allow all message permissions (6 ms)
+      ✓ should allow all device permissions (5 ms)
+      ✓ should allow all api-key permissions (6 ms)
+      ✓ should allow combination of all permission types (6 ms)
+    Enterprise Plan Permissions
+      ✓ should allow all permissions (7 ms)
+    Unknown Plan
+      ✓ should default to starter plan permissions (13 ms)
+    Error Handling
+      ✓ should handle errors gracefully (8 ms)
+  requireOwnership middleware
+    No Authentication
+      ✓ should reject when no subscriber context (5 ms)
+    Ownership Validation
+      ✓ should allow access when subscriber ID matches (6 ms)
+      ✓ should reject when subscriber ID does not match (7 ms)
+      ✓ should pass through when no subscriberId in params (5 ms)
+      ✓ should pass through when subscriberId is undefined (6 ms)
+
+Test Suites: 2 passed, 2 total
+Tests:       39 passed, 39 total
+Snapshots:   0 total
+Time:        16.606 s
+```
+
+**Files Tested:**
+
+```
+src/backend/
+├── middleware/                 # Middleware implementations
+│   ├── authenticate.ts        # API key authentication (270 lines)
+│   ├── requirePermissions.ts  # Permission checking (220 lines)
+│   └── rateLimit.ts          # Redis rate limiting (200 lines)
+└── tests/
+    └── unit/
+        └── middleware/        # Middleware tests
+            ├── authenticate.test.ts        # Auth tests (400+ lines, 18 tests)
+            └── requirePermissions.test.ts  # Permission tests (380+ lines, 21 tests)
+```
+
+**Documentation:**
+
+**File**: `docs/AUTHENTICATION_GUIDE.md`
+
+Complete guide covering:
+- Quick start examples
+- Detailed middleware usage
+- Common usage patterns
+- Error handling
+- Testing instructions
+- Security considerations
+
+**Troubleshooting:**
+
+**Problem**: "Cannot find module '../../../config/database'"
+
+```bash
+# Make sure you're in the backend directory
+cd src/backend
+
+# Reinstall dependencies
+npm install
+
+# Run tests again
+npm test -- --testPathPattern=middleware
+```
+
+**Problem**: Redis connection errors during tests
+
+```bash
+# Authentication tests mock Redis, so this shouldn't happen
+# If it does, check that Redis is running:
+redis-cli ping
+
+# Should return: PONG
+```
+
+**Problem**: Tests timeout
+
+```bash
+# Increase Jest timeout
+npm test -- --testPathPattern=middleware --testTimeout=60000
 ```
 
 ---
@@ -966,6 +1487,15 @@ npm install
 - [ ] Database test endpoint works
 - [ ] Redis test endpoint works
 
+### Validation Tests
+- [ ] All validation schema tests pass (`npm test -- --testPathPattern=validation`)
+- [ ] Device schema validation (54 tests pass)
+- [ ] Message schema validation (52 tests pass)
+- [ ] Auth schema validation (35 tests pass)
+- [ ] Total 141 tests pass in ~30 seconds
+- [ ] No type errors or import issues
+- [ ] Validation middleware properly handles errors
+
 ### Android Tests
 - [ ] Android Studio opens project without errors
 - [ ] Gradle sync completes successfully
@@ -1003,6 +1533,14 @@ After completing all tests:
    ✅ Health endpoint: OK
    ✅ Database connection: OK
    ✅ Redis connection: OK
+
+✅ Validation
+   ✅ 141 validation tests pass
+   ✅ Device schemas: 54 tests pass
+   ✅ Message schemas: 52 tests pass
+   ✅ Auth schemas: 35 tests pass
+   ✅ Phone number validation (E.164 format)
+   ✅ Request parameter validation working
 
 ✅ Android
    ✅ App builds successfully

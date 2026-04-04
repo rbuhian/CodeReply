@@ -11,7 +11,10 @@
       "Bash(npm install:*)",
       "Bash(npm run dev:*)",
       "Bash(curl:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

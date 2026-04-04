@@ -4,7 +4,9 @@ module.exports = {
   roots: ['<rootDir>/tests', '<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: '<rootDir>/tsconfig.test.json',
+    }],
   },
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -20,31 +22,51 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   testTimeout: 30000,
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-      },
-    },
-  },
   // Test suites configuration
   projects: [
     {
       displayName: 'unit',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
       testMatch: ['<rootDir>/tests/unit/**/*.test.ts'],
+      transform: {
+        '^.+\\.ts$': ['ts-jest', {
+          tsconfig: '<rootDir>/tsconfig.test.json',
+        }],
+      },
     },
     {
       displayName: 'integration',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
       testMatch: ['<rootDir>/tests/integration/**/*.test.ts'],
+      transform: {
+        '^.+\\.ts$': ['ts-jest', {
+          tsconfig: '<rootDir>/tsconfig.test.json',
+        }],
+      },
     },
     {
       displayName: 'security',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
       testMatch: ['<rootDir>/tests/security/**/*.test.ts'],
+      transform: {
+        '^.+\\.ts$': ['ts-jest', {
+          tsconfig: '<rootDir>/tsconfig.test.json',
+        }],
+      },
     },
     {
       displayName: 'performance',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
       testMatch: ['<rootDir>/tests/performance/**/*.test.ts'],
+      transform: {
+        '^.+\\.ts$': ['ts-jest', {
+          tsconfig: '<rootDir>/tsconfig.test.json',
+        }],
+      },
     },
   ],
 };

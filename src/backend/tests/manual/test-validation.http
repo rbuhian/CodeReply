@@ -1,0 +1,89 @@
+###
+# Manual Validation Testing
+# Use REST Client extension in VS Code or copy to Postman/Insomnia
+###
+
+### Test 1: Valid Message Send
+POST http://localhost:3000/api/test/validate/message
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Hello, this is a test message!",
+  "priority": "HIGH",
+  "ttl": 600
+}
+
+### Test 2: Invalid Phone Number (should fail)
+POST http://localhost:3000/api/test/validate/message
+Content-Type: application/json
+
+{
+  "to": "invalid-phone",
+  "body": "Test message"
+}
+
+### Test 3: Message Too Long (should fail)
+POST http://localhost:3000/api/test/validate/message
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "{{$randomLoremParagraph}}{{$randomLoremParagraph}}{{$randomLoremParagraph}}{{$randomLoremParagraph}}{{$randomLoremParagraph}}{{$randomLoremParagraph}}"
+}
+
+### Test 4: Valid Device Registration
+POST http://localhost:3000/api/test/validate/device
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_abcdefghijklmnopqrstuvwxyz123456",
+  "deviceName": "Office Phone 1",
+  "simCarrier": "Smart Communications",
+  "simNumber": "+639171234567",
+  "androidVersion": "13.0",
+  "appVersion": "1.0.0"
+}
+
+### Test 5: Invalid Device Name (should fail - special chars)
+POST http://localhost:3000/api/test/validate/device
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_abcdefghijklmnopqrstuvwxyz123456",
+  "deviceName": "Office@Phone#1"
+}
+
+### Test 6: Valid API Key
+POST http://localhost:3000/api/test/validate/apikey
+Content-Type: application/json
+
+{
+  "label": "Production API Key",
+  "environment": "live",
+  "permissions": ["messages:read", "messages:write"]
+}
+
+### Test 7: Weak Password (should fail)
+POST http://localhost:3000/api/test/validate/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "weakpass",
+  "confirmPassword": "weakpass",
+  "companyName": "Acme Corp",
+  "fullName": "John Doe"
+}
+
+### Test 8: Strong Password (should pass)
+POST http://localhost:3000/api/test/validate/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123",
+  "confirmPassword": "SecurePassword123",
+  "companyName": "Acme Corp",
+  "fullName": "John Doe"
+}

@@ -132,13 +132,76 @@ app.get('/health/detailed', async (req: Request, res: Response) => {
 });
 
 /**
- * API Routes (to be implemented)
+ * Test Endpoints (Development/Testing Only)
  */
 
-// TODO: Import and use API routes
-// app.use('/api/v1/devices', deviceRoutes);
-// app.use('/api/v1/messages', messageRoutes);
-// app.use('/api/v1/auth', authRoutes);
+// Test database connection with a simple query
+app.get('/test/database', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT NOW() as current_time, version() as pg_version');
+
+    res.json({
+      success: true,
+      current_time: result.rows[0].current_time,
+      postgresql_version: result.rows[0].pg_version.split(' ')[1],
+      pool: getPoolStats(),
+    });
+  } catch (error) {
+    logger.error('Database test failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Test Redis connection with set/get operations
+app.get('/test/redis', async (req: Request, res: Response) => {
+  try {
+    const testKey = 'test_key_' + Date.now();
+    const testValue = 'Hello from Redis at ' + new Date().toISOString();
+
+    // Set a value
+    await redisClient.set(testKey, testValue);
+
+    // Get the value back
+    const retrievedValue = await redisClient.get(testKey);
+
+    // Clean up - delete the test key
+    await redisClient.del(testKey);
+
+    res.json({
+      success: true,
+      test_key: testKey,
+      set_value: testValue,
+      retrieved_value: retrievedValue,
+      match: testValue === retrievedValue,
+      redis_info: await getRedisInfo(),
+    });
+  } catch (error) {
+    logger.error('Redis test failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * API Routes
+ */
+
+import deviceRoutes from '../routes/deviceRoutes';
+
+app.use('/v1/devices', deviceRoutes);
+// app.use('/v1/messages', messageRoutes);
+// app.use('/v1/auth', authRoutes);
 
 /**
  * 404 Handler

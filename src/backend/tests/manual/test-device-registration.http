@@ -1,0 +1,396 @@
+###
+# Device Management API - Manual Testing
+# Use with VS Code REST Client extension or similar
+# Author: Bernadette (API Engineer)
+# Date: April 4, 2026
+# Updated: Device management endpoints added
+###
+
+@baseUrl = http://localhost:3000
+@apiKey = Bearer cr_live_YOUR_API_KEY_HERE
+@deviceId = DEVICE_UUID_HERE
+
+###
+# 1. Health Check - Verify server is running
+GET {{baseUrl}}/health
+
+###
+# 2. Check Device Quota
+# Shows current device count and available slots
+GET {{baseUrl}}/v1/devices/quota
+Authorization: {{apiKey}}
+
+###
+# 3. Generate Registration Token
+# Creates a one-time token for device enrollment
+POST {{baseUrl}}/v1/devices/registration-token
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "label": "Test Device Registration"
+}
+
+###
+# 3b. Generate Registration Token (no label)
+POST {{baseUrl}}/v1/devices/registration-token
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{}
+
+###
+# 4. Register Device - Full Data
+# Use the token from step 3
+# Replace REGISTRATION_TOKEN with actual token from response above
+POST {{baseUrl}}/v1/devices/register
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_YOUR_64_CHAR_TOKEN_HERE",
+  "deviceName": "Samsung Galaxy S21",
+  "simCarrier": "T-Mobile",
+  "simNumber": "+639171234567",
+  "androidVersion": "13.0",
+  "appVersion": "2.0.0"
+}
+
+###
+# 4b. Register Device - Minimal Data
+POST {{baseUrl}}/v1/devices/register
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_YOUR_64_CHAR_TOKEN_HERE",
+  "deviceName": "My Phone"
+}
+
+###
+# Error Cases - Invalid API Key
+GET {{baseUrl}}/v1/devices/quota
+Authorization: Bearer cr_live_invalid_key
+
+###
+# Error Cases - Missing API Key
+GET {{baseUrl}}/v1/devices/quota
+
+###
+# Error Cases - Invalid Registration Token Format
+POST {{baseUrl}}/v1/devices/register
+Content-Type: application/json
+
+{
+  "registrationToken": "invalid-token-format",
+  "deviceName": "Test Device"
+}
+
+###
+# Error Cases - Invalid Device Name (special characters)
+POST {{baseUrl}}/v1/devices/register
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_0000000000000000000000000000000000000000000000000000000000000000",
+  "deviceName": "Phone@#$%"
+}
+
+###
+# Error Cases - Invalid SIM Number Format
+POST {{baseUrl}}/v1/devices/register
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_0000000000000000000000000000000000000000000000000000000000000000",
+  "deviceName": "Test Device",
+  "simNumber": "123"
+}
+
+###
+# Error Cases - Expired/Used Token (will fail after first use)
+POST {{baseUrl}}/v1/devices/register
+Content-Type: application/json
+
+{
+  "registrationToken": "cr_reg_YOUR_USED_TOKEN_HERE",
+  "deviceName": "Test Device"
+}
+
+###
+# ============================================================================
+# DEVICE MANAGEMENT ENDPOINTS
+# ============================================================================
+###
+
+###
+# 5. List All Devices
+# Get all devices for authenticated subscriber with pagination and filtering
+GET {{baseUrl}}/v1/devices
+Authorization: {{apiKey}}
+
+###
+# 5b. List Devices with Filters
+# Filter by status, with pagination and sorting
+GET {{baseUrl}}/v1/devices?status=ONLINE&limit=10&offset=0&sortBy=created_at&sortOrder=desc
+Authorization: {{apiKey}}
+
+###
+# 5c. List Only Offline Devices
+GET {{baseUrl}}/v1/devices?status=OFFLINE
+Authorization: {{apiKey}}
+
+###
+# 6. Get Device Details
+# Retrieve details for a specific device (replace {{deviceId}} with actual UUID)
+GET {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+
+###
+# 7. Update Device Name
+# Change the display name of a device
+PATCH {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "name": "Updated Device Name"
+}
+
+###
+# 7b. Update SIM Carrier
+# Update the SIM carrier information
+PATCH {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "simCarrier": "AT&T"
+}
+
+###
+# 7c. Update Multiple Fields
+# Update name and SIM information together
+PATCH {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "name": "Office Phone",
+  "simCarrier": "Verizon",
+  "simNumber": "+16505551234"
+}
+
+###
+# 7d. Clear SIM Number (set to null)
+PATCH {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "simNumber": null
+}
+
+###
+# 8. Delete Device (Soft Delete)
+# Marks device as deleted (doesn't physically remove it)
+DELETE {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{}
+
+###
+# 8b. Delete with Confirmation
+DELETE {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "confirm": true
+}
+
+###
+# Device Management Error Cases
+###
+
+###
+# Error - Get Device that Doesn't Exist
+GET {{baseUrl}}/v1/devices/00000000-0000-0000-0000-000000000000
+Authorization: {{apiKey}}
+
+###
+# Error - Update Device that Doesn't Exist
+PATCH {{baseUrl}}/v1/devices/00000000-0000-0000-0000-000000000000
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "name": "New Name"
+}
+
+###
+# Error - Invalid Device Name (too long)
+PATCH {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "name": "This is a very long device name that exceeds the maximum allowed length of 100 characters and should be rejected by validation"
+}
+
+###
+# Error - Invalid SIM Number Format
+PATCH {{baseUrl}}/v1/devices/{{deviceId}}
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "simNumber": "not-a-valid-phone"
+}
+
+###
+# Expected Responses
+###
+
+# Success Response Example - Generate Token (201 Created):
+# {
+#   "success": true,
+#   "data": {
+#     "token": "cr_reg_a1b2c3d4...",
+#     "tokenId": "uuid",
+#     "expiresAt": "2026-04-04T04:00:00.000Z",
+#     "expiresIn": 3600,
+#     "quota": {
+#       "current": 1,
+#       "maximum": 10,
+#       "available": 9
+#     }
+#   },
+#   "message": "Registration token generated successfully",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Success Response Example - Register Device (201 Created):
+# {
+#   "success": true,
+#   "data": {
+#     "deviceId": "uuid",
+#     "deviceToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#     "subscriberId": "uuid",
+#     "deviceName": "Samsung Galaxy S21"
+#   },
+#   "message": "Device registered successfully",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Error Response Example - Invalid Token (400 Bad Request):
+# {
+#   "error": "Validation Error",
+#   "message": "The request contains invalid data",
+#   "errors": [
+#     {
+#       "field": "registrationToken",
+#       "message": "Invalid registration token format. Must be cr_reg_ followed by 64 hexadecimal characters"
+#     }
+#   ],
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Error Response Example - Quota Exceeded (403 Forbidden):
+# {
+#   "error": "Quota Exceeded",
+#   "message": "Device quota exceeded. Current: 5, Maximum: 5",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+###
+# Device Management Response Examples
+###
+
+# Success Response Example - List Devices (200 OK):
+# {
+#   "success": true,
+#   "data": {
+#     "devices": [
+#       {
+#         "id": "device-uuid-1",
+#         "subscriberId": "subscriber-uuid",
+#         "name": "Samsung Galaxy S21",
+#         "simCarrier": "T-Mobile",
+#         "simNumber": "+639171234567",
+#         "androidVersion": "13.0",
+#         "appVersion": "2.0.0",
+#         "status": "ONLINE",
+#         "lastHeartbeat": "2026-04-04T03:00:00.000Z",
+#         "createdAt": "2026-04-01T10:00:00.000Z",
+#         "totalMessagesSent": 150,
+#         "totalMessagesFailed": 3
+#       }
+#     ],
+#     "total": 1,
+#     "limit": 20,
+#     "offset": 0
+#   },
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Success Response Example - Get Device (200 OK):
+# {
+#   "success": true,
+#   "data": {
+#     "id": "device-uuid",
+#     "subscriberId": "subscriber-uuid",
+#     "name": "Samsung Galaxy S21",
+#     "simCarrier": "T-Mobile",
+#     "simNumber": "+639171234567",
+#     "androidVersion": "13.0",
+#     "appVersion": "2.0.0",
+#     "status": "ONLINE",
+#     "lastHeartbeat": "2026-04-04T03:00:00.000Z",
+#     "createdAt": "2026-04-01T10:00:00.000Z",
+#     "totalMessagesSent": 150,
+#     "totalMessagesFailed": 3
+#   },
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Success Response Example - Update Device (200 OK):
+# {
+#   "success": true,
+#   "data": {
+#     "id": "device-uuid",
+#     "subscriberId": "subscriber-uuid",
+#     "name": "Updated Device Name",
+#     "simCarrier": "Verizon",
+#     "simNumber": "+16505551234",
+#     "androidVersion": "13.0",
+#     "appVersion": "2.0.0",
+#     "status": "ONLINE",
+#     "lastHeartbeat": "2026-04-04T03:00:00.000Z",
+#     "createdAt": "2026-04-01T10:00:00.000Z",
+#     "totalMessagesSent": 150,
+#     "totalMessagesFailed": 3
+#   },
+#   "message": "Device updated successfully",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Success Response Example - Delete Device (200 OK):
+# {
+#   "success": true,
+#   "message": "Device deleted successfully",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Error Response Example - Device Not Found (404 Not Found):
+# {
+#   "error": "Not Found",
+#   "message": "Device not found",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
+
+# Error Response Example - Unauthorized Access (403 Forbidden):
+# {
+#   "error": "Forbidden",
+#   "message": "You do not have permission to access this device",
+#   "timestamp": "2026-04-04T03:00:00.000Z"
+# }
