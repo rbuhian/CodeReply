@@ -168,23 +168,22 @@ describe('Integration: Device Registration and Messaging Flow', () => {
     it('should route message to online device end-to-end', async () => {
       // Step 1: Send message via API
       const messageData = {
-        to: '+639179876543',
+        toNumber: '+639179876543',
         body: 'Your OTP is 123456. Valid for 5 minutes.',
-        webhookUrl: null,
         metadata: { purpose: 'otp', userId: 'user123' },
       };
 
-      const sendResult = await messageService.sendMessage(subscriberId, messageData);
+      const sendResult = await messageService.createMessage(subscriberId, messageData);
 
-      expect(sendResult).toHaveProperty('messageId');
-      expect(sendResult.status).toBe('QUEUED');
-      expect(sendResult.to).toBe(messageData.to);
+      expect(sendResult).toHaveProperty('message');
+      expect(sendResult.message.status).toBe('QUEUED');
+      expect(sendResult.message.toNumber).toBe(messageData.toNumber);
 
       // Step 2: Verify message in database
-      const message = await testDb.getMessage(sendResult.messageId);
+      const message = await testDb.getMessage(sendResult.message.id);
       expect(message).toBeTruthy();
       expect(message.subscriber_id).toBe(subscriberId);
-      expect(message.to_number).toBe(messageData.to);
+      expect(message.toNumber).toBe(messageData.toNumber);
       expect(message.body).toBe(messageData.body);
       expect(message.status).toBe('QUEUED');
       expect(message.gateway_id).toBe(deviceId); // Should be assigned to our online device
@@ -209,21 +208,21 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       await deviceService.updateHeartbeat(smartDevice.deviceId, subscriberId);
 
       // Send message to Globe number - should route to Globe device
-      const globeMessage = await messageService.sendMessage(subscriberId, {
-        to: '+639171234567', // Globe prefix
+      const globeMessage = await messageService.createMessage(subscriberId, {
+        toNumber: '+639171234567', // Globe prefix
         body: 'Test to Globe',
       });
 
-      const globeMsg = await testDb.getMessage(globeMessage.messageId);
+      const globeMsg = await testDb.getMessage(globeMessage.message.id);
       expect(globeMsg.gateway_id).toBe(deviceId); // Should route to Globe device
 
       // Send message to Smart number - should route to Smart device
-      const smartMessage = await messageService.sendMessage(subscriberId, {
-        to: '+639181234567', // Smart prefix
+      const smartMessage = await messageService.createMessage(subscriberId, {
+        toNumber: '+639181234567', // Smart prefix
         body: 'Test to Smart',
       });
 
-      const smartMsg = await testDb.getMessage(smartMessage.messageId);
+      const smartMsg = await testDb.getMessage(smartMessage.message.id);
       expect(smartMsg.gateway_id).toBe(smartDevice.deviceId); // Should route to Smart device
     });
 
@@ -232,13 +231,13 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       await testDb.updateDeviceStatus(deviceId, 'OFFLINE');
 
       // Send message
-      const result = await messageService.sendMessage(subscriberId, {
-        to: '+639179876543',
+      const result = await messageService.createMessage(subscriberId, {
+        toNumber: '+639179876543',
         body: 'Test message',
       });
 
       // Verify message is queued without device assignment
-      const message = await testDb.getMessage(result.messageId);
+      const message = await testDb.getMessage(result.message.id);
       expect(message.status).toBe('QUEUED');
       expect(message.gateway_id).toBeNull(); // No device assigned
     });
@@ -267,25 +266,26 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       const webhookUrl = 'https://example.com/webhook';
 
       // Send message with webhook
-      const result = await messageService.sendMessage(subscriberId, {
-        to: '+639179876543',
+      const result = await messageService.createMessage(subscriberId, {
+        toNumber: '+639179876543',
         body: 'Test message',
         webhookUrl,
       });
 
       // Simulate webhook delivery
       await webhookService.deliverWebhook(webhookUrl, {
-        messageId: result.messageId,
+        messageId: result.message.id,
         status: 'QUEUED',
-        to: '+639179876543',
+        toNumber: '+639179876543',
         timestamp: new Date().toISOString(),
+        deviceId: deviceId,
       });
 
       // Verify webhook was called
       expect(mockedAxios.post).toHaveBeenCalledWith(
         webhookUrl,
         expect.objectContaining({
-          messageId: result.messageId,
+          messageId: result.message.id,
           status: 'QUEUED',
         }),
         expect.objectContaining({
@@ -296,7 +296,7 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       // Verify webhook delivery in database
       const deliveries = await testDb.query(
         'SELECT * FROM webhook_deliveries WHERE message_id = $1',
-        [result.messageId]
+        [result.message.id]
       );
       expect(deliveries.length).toBeGreaterThan(0);
       expect(deliveries[0].webhook_url).toBe(webhookUrl);
@@ -317,6 +317,9 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       const result = await webhookService.deliverWebhook(webhookUrl, {
         messageId: 'msg-123',
         status: 'SENT',
+        toNumber: '+639179876543',
+        timestamp: new Date().toISOString(),
+        deviceId: null,
       });
 
       // Should succeed after retries
@@ -337,6 +340,9 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       const result = await webhookService.deliverWebhook(webhookUrl, {
         messageId: 'msg-123',
         status: 'SENT',
+        toNumber: '+639179876543',
+        timestamp: new Date().toISOString(),
+        deviceId: null,
       });
 
       // Should fail without retry
@@ -372,32 +378,33 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       expect(onlineDevice.status).toBe('ONLINE');
 
       // Step 4: Send message
-      const message = await messageService.sendMessage(subscriberId, {
-        to: '+639179876543',
+      const message = await messageService.createMessage(subscriberId, {
+        toNumber: '+639179876543',
         body: 'Your verification code is 123456',
         webhookUrl,
       });
-      expect(message.messageId).toBeTruthy();
-      expect(message.status).toBe('QUEUED');
+      expect(message.message.id).toBeTruthy();
+      expect(message.message.status).toBe('QUEUED');
 
       // Step 5: Verify message routing
-      const messageInDb = await testDb.getMessage(message.messageId);
+      const messageInDb = await testDb.getMessage(message.message.id);
       expect(messageInDb.gateway_id).toBe(device.deviceId);
-      expect(messageInDb.to_number).toBe('+639179876543');
+      expect(messageInDb.toNumber).toBe('+639179876543');
 
       // Step 6: Deliver webhook
       await webhookService.deliverWebhook(webhookUrl, {
-        messageId: message.messageId,
+        messageId: message.message.id,
         status: 'SENT',
-        to: '+639179876543',
+        toNumber: '+639179876543',
         timestamp: new Date().toISOString(),
+        deviceId: device.deviceId,
       });
 
       // Verify webhook delivery
       expect(mockedAxios.post).toHaveBeenCalledWith(
         webhookUrl,
         expect.objectContaining({
-          messageId: message.messageId,
+          messageId: message.message.id,
           status: 'SENT',
         }),
         expect.any(Object)
@@ -406,7 +413,7 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       // Verify complete flow in database
       const deliveries = await testDb.query(
         'SELECT * FROM webhook_deliveries WHERE message_id = $1',
-        [message.messageId]
+        [message.message.id]
       );
       expect(deliveries[0].success).toBe(true);
 
@@ -434,22 +441,22 @@ describe('Integration: Device Registration and Messaging Flow', () => {
       expect(deviceStatus.status).toBe('ONLINE');
 
       // Send first message - should succeed
-      const msg1 = await messageService.sendMessage(subscriberId, {
-        to: '+639171234567',
+      const msg1 = await messageService.createMessage(subscriberId, {
+        toNumber: '+639171234567',
         body: 'First message',
       });
-      const message1 = await testDb.getMessage(msg1.messageId);
+      const message1 = await testDb.getMessage(msg1.message.id);
       expect(message1.gateway_id).toBe(device.deviceId);
 
       // Device goes offline
       await testDb.updateDeviceStatus(device.deviceId, 'OFFLINE');
 
       // Send second message - should queue without device
-      const msg2 = await messageService.sendMessage(subscriberId, {
-        to: '+639171234568',
+      const msg2 = await messageService.createMessage(subscriberId, {
+        toNumber: '+639171234568',
         body: 'Second message',
       });
-      const message2 = await testDb.getMessage(msg2.messageId);
+      const message2 = await testDb.getMessage(msg2.message.id);
       expect(message2.gateway_id).toBeNull();
       expect(message2.status).toBe('QUEUED');
     });

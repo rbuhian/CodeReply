@@ -289,6 +289,9 @@ describe('Integration: Error Recovery and Message Retry', () => {
       const result = await webhookService.deliverWebhook(webhookUrl, {
         messageId: 'msg-123',
         status: 'SENT',
+        toNumber: '+639179876543',
+        timestamp: new Date().toISOString(),
+        deviceId: null,
       });
 
       // Should succeed after 3 attempts
@@ -305,6 +308,9 @@ describe('Integration: Error Recovery and Message Retry', () => {
       const result = await webhookService.deliverWebhook(webhookUrl, {
         messageId: 'msg-123',
         status: 'SENT',
+        toNumber: '+639179876543',
+        timestamp: new Date().toISOString(),
+        deviceId: null,
       });
 
       // Should fail after 3 attempts
@@ -323,6 +329,9 @@ describe('Integration: Error Recovery and Message Retry', () => {
       const result = await webhookService.deliverWebhook(webhookUrl, {
         messageId: 'msg-123',
         status: 'SENT',
+        toNumber: '+639179876543',
+        timestamp: new Date().toISOString(),
+        deviceId: null,
       });
 
       // Should fail without retry
@@ -344,6 +353,9 @@ describe('Integration: Error Recovery and Message Retry', () => {
       const result = await webhookService.deliverWebhook(webhookUrl, {
         messageId: 'msg-123',
         status: 'SENT',
+        toNumber: '+639179876543',
+        timestamp: new Date().toISOString(),
+        deviceId: null,
       });
 
       // Should succeed after retry
@@ -416,30 +428,30 @@ describe('Integration: Error Recovery and Message Retry', () => {
   describe('Message State Transitions', () => {
     it('should handle QUEUED → FAILED → QUEUED retry flow', async () => {
       // Send message
-      const result = await messageService.sendMessage(subscriberId, {
-        to: '+639179876543',
+      const result = await messageService.createMessage(subscriberId, {
+        toNumber: '+639179876543',
         body: 'Test message',
       });
 
       // Initial state: QUEUED
-      let message = await testDb.getMessage(result.messageId);
+      let message = await testDb.getMessage(result.message.id);
       expect(message.status).toBe('QUEUED');
 
       // Simulate failure
       await testDb.query(
         'UPDATE messages SET status = $1 WHERE id = $2',
-        ['FAILED', result.messageId]
+        ['FAILED', result.message.id]
       );
 
       // State after failure: FAILED
-      message = await testDb.getMessage(result.messageId);
+      message = await testDb.getMessage(result.message.id);
       expect(message.status).toBe('FAILED');
 
       // Retry
-      await retryService.retryMessage(result.messageId);
+      await retryService.retryMessage(result.message.id);
 
       // State after retry: QUEUED
-      message = await testDb.getMessage(result.messageId);
+      message = await testDb.getMessage(result.message.id);
       expect(message.status).toBe('QUEUED');
       expect(message.retry_count).toBe(1);
     });

@@ -86,7 +86,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
     for (let i = 0; i < count; i++) {
       const to = toNumbers[i % toNumbers.length];
-      const result = await messageService.sendMessage(subscriberId, {
+      const result = await messageService.createMessage(subscriberId, {
         to,
         body: `Test message ${i + 1}`,
       });
@@ -107,7 +107,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // Get message distribution
       const distribution = new Map<string, number>();
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         const deviceId = message.gateway_id;
         distribution.set(deviceId, (distribution.get(deviceId) || 0) + 1);
       }
@@ -135,7 +135,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // Get message distribution
       const distribution = new Map<string, number>();
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         const deviceId = message.gateway_id;
         distribution.set(deviceId, (distribution.get(deviceId) || 0) + 1);
       }
@@ -162,7 +162,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // All should route to Globe device
       for (const msg of globeMessages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         const device = await testDb.getDevice(message.gateway_id);
         expect(device.sim_carrier).toBe('Globe');
       }
@@ -172,7 +172,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // All should route to Smart device
       for (const msg of smartMessages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         const device = await testDb.getDevice(message.gateway_id);
         expect(device.sim_carrier).toBe('Smart');
       }
@@ -183,13 +183,13 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       await registerDevices(2, ['Globe', 'Globe']);
 
       // Send message to Smart number
-      const result = await messageService.sendMessage(subscriberId, {
-        to: '+639181234567', // Smart number
+      const result = await messageService.createMessage(subscriberId, {
+        toNumber: '+639181234567', // Smart number
         body: 'Test message',
       });
 
       // Should still assign to a Globe device
-      const message = await testDb.getMessage(result.messageId);
+      const message = await testDb.getMessage(result.message.id);
       expect(message.gateway_id).toBeTruthy();
 
       const device = await testDb.getDevice(message.gateway_id);
@@ -208,12 +208,12 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       ];
 
       for (const testCase of testCases) {
-        const result = await messageService.sendMessage(subscriberId, {
+        const result = await messageService.createMessage(subscriberId, {
           to: testCase.to,
           body: 'Test',
         });
 
-        const message = await testDb.getMessage(result.messageId);
+        const message = await testDb.getMessage(result.message.id);
         const device = await testDb.getDevice(message.gateway_id);
         expect(device.sim_carrier).toBe(testCase.expectedCarrier);
       }
@@ -245,7 +245,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // Most recent device should get more messages
       const distribution = new Map<string, number>();
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         distribution.set(message.gateway_id, (distribution.get(message.gateway_id) || 0) + 1);
       }
 
@@ -271,7 +271,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // Disabled device should not receive any messages
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         expect(message.gateway_id).not.toBe(devices[1].id);
       }
     });
@@ -288,7 +288,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // Deleted device should not receive any messages
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         expect(message.gateway_id).not.toBe(devices[1].id);
       }
     });
@@ -303,7 +303,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       const promises = [];
       for (let i = 0; i < 30; i++) {
         promises.push(
-          messageService.sendMessage(subscriberId, {
+          messageService.createMessage(subscriberId, {
             to: `+6391712${String(i).padStart(5, '0')}`,
             body: `Concurrent message ${i}`,
           })
@@ -315,14 +315,14 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // All messages should succeed
       expect(results.length).toBe(30);
       for (const result of results) {
-        expect(result.messageId).toBeTruthy();
+        expect(result.message.id).toBeTruthy();
         expect(result.status).toBe('QUEUED');
       }
 
       // Messages should be distributed across devices
       const distribution = new Map<string, number>();
       for (const result of results) {
-        const message = await testDb.getMessage(result.messageId);
+        const message = await testDb.getMessage(result.message.id);
         distribution.set(message.gateway_id, (distribution.get(message.gateway_id) || 0) + 1);
       }
 
@@ -337,11 +337,11 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // Send 10 messages sequentially
       const messageIds: string[] = [];
       for (let i = 0; i < 10; i++) {
-        const result = await messageService.sendMessage(subscriberId, {
-          to: '+639171234567',
+        const result = await messageService.createMessage(subscriberId, {
+          toNumber: '+639171234567',
           body: `Message ${i}`,
         });
-        messageIds.push(result.messageId);
+        messageIds.push(result.message.id);
       }
 
       // Verify messages in database maintain order
@@ -373,7 +373,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // Second batch should not go to offline device
       for (const msg of batch2) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         expect(message.gateway_id).not.toBe(devices[0].id);
       }
     });
@@ -391,7 +391,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // All messages should be queued without device assignment
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         expect(message.status).toBe('QUEUED');
         expect(message.gateway_id).toBeNull();
       }
@@ -406,24 +406,24 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       await testDb.updateDeviceStatus(devices[1].id, 'OFFLINE');
 
       // Send message - should queue without device
-      const result = await messageService.sendMessage(subscriberId, {
-        to: '+639171234567',
+      const result = await messageService.createMessage(subscriberId, {
+        toNumber: '+639171234567',
         body: 'Test message',
       });
 
-      let message = await testDb.getMessage(result.messageId);
+      let message = await testDb.getMessage(result.message.id);
       expect(message.gateway_id).toBeNull();
 
       // Bring device back online
       await deviceService.updateHeartbeat(devices[0].id, subscriberId);
 
       // Send another message - should now route to online device
-      const result2 = await messageService.sendMessage(subscriberId, {
-        to: '+639171234568',
+      const result2 = await messageService.createMessage(subscriberId, {
+        toNumber: '+639171234568',
         body: 'Test message 2',
       });
 
-      const message2 = await testDb.getMessage(result2.messageId);
+      const message2 = await testDb.getMessage(result2.message.id);
       expect(message2.gateway_id).toBe(devices[0].id);
     });
   });
@@ -438,7 +438,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
 
       // All messages should be assigned
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         expect(message.gateway_id).toBeTruthy();
         expect(message.status).toBe('QUEUED');
       }
@@ -446,7 +446,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // Messages should be evenly distributed
       const distribution = new Map<string, number>();
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         distribution.set(message.gateway_id, (distribution.get(message.gateway_id) || 0) + 1);
       }
 
@@ -480,7 +480,7 @@ describe('Integration: Multi-Device Routing Scenarios', () => {
       // Count messages by carrier
       const carrierCounts = new Map<string, number>();
       for (const msg of messages) {
-        const message = await testDb.getMessage(msg.messageId);
+        const message = await testDb.getMessage(msg.message.id);
         const device = await testDb.getDevice(message.gateway_id);
         const carrier = device.sim_carrier;
         carrierCounts.set(carrier, (carrierCounts.get(carrier) || 0) + 1);
