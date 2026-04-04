@@ -1,0 +1,273 @@
+###############################################################################
+# Webhook & Retry Manual Testing Guide
+# Test webhook delivery and message retry functionality
+# Author: Bernadette (API Development)
+# Date: April 4, 2026
+###############################################################################
+
+# Prerequisites:
+# 1. Backend server running (npm run dev)
+# 2. Valid API key in environment
+# 3. Webhook test server running (see below for setup)
+
+@baseUrl = http://localhost:3000/api/v1
+@apiKey = sk_test_abcdef123456_d9e8f7g6h5i4j3k2l1m0
+
+###############################################################################
+# SETUP: Webhook Test Server
+###############################################################################
+# Option 1: Use webhook.site
+# - Visit https://webhook.site
+# - Copy your unique URL
+# - Use it as webhookUrl in requests below
+
+# Option 2: Use local webhook server
+# - Install webhook test server: npm install -g webhook
+# - Run: webhook --port 8080
+# - Use http://localhost:8080 as webhookUrl
+
+# Option 3: Use ngrok for testing
+# - Run: ngrok http 8080
+# - Use the ngrok URL as webhookUrl
+
+###############################################################################
+# TEST 1: Send Message with Webhook
+###############################################################################
+
+### Send message with webhook URL
+POST {{baseUrl}}/messages/send
+X-API-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test message with webhook notification",
+  "webhookUrl": "https://webhook.site/your-unique-id",
+  "metadata": {
+    "testId": "webhook-test-1"
+  }
+}
+
+# Expected Response:
+# - 202 Accepted (if device available)
+# - 503 Service Unavailable (if no devices)
+# - Response includes message ID
+
+# Expected Webhook Delivery:
+# - Webhook should receive POST request
+# - Payload includes: messageId, status, timestamp, deviceId, toNumber
+
+###############################################################################
+# TEST 2: Webhook Retry on Failure
+###############################################################################
+
+### Send message with webhook that fails first time
+POST {{baseUrl}}/messages/send
+X-API-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639179999999",
+  "body": "Testing webhook retry logic",
+  "webhookUrl": "https://httpstat.us/500",
+  "metadata": {
+    "testId": "webhook-retry-test"
+  }
+}
+
+# Note: httpstat.us/500 returns 500 error
+# Expected Behavior:
+# - Webhook service will retry 3 times
+# - Uses exponential backoff (1s, 2s, 4s)
+# - After 3 failures, marks webhook delivery as failed
+# - Message still processes normally
+
+###############################################################################
+# TEST 3: Webhook with 4xx Error (No Retry)
+###############################################################################
+
+### Send message with webhook that returns 404
+POST {{baseUrl}}/messages/send
+X-API-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639178888888",
+  "body": "Testing webhook 404 handling",
+  "webhookUrl": "https://httpstat.us/404",
+  "metadata": {
+    "testId": "webhook-404-test"
+  }
+}
+
+# Expected Behavior:
+# - Webhook service will NOT retry on 4xx errors
+# - Single attempt only
+# - Webhook delivery marked as failed
+# - Message still processes normally
+
+###############################################################################
+# TEST 4: Multiple Status Webhooks
+###############################################################################
+
+### Send message and track status changes
+POST {{baseUrl}}/messages/send
+X-API-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639177777777",
+  "body": "Multi-status webhook test",
+  "webhookUrl": "https://webhook.site/your-unique-id"
+}
+
+# Expected Webhook Calls:
+# 1. QUEUED - When message is queued
+# 2. DISPATCHED - When sent to device
+# 3. SENT - When device confirms send
+# 4. DELIVERED - When carrier confirms delivery
+# OR
+# 3. FAILED - If send fails
+
+###############################################################################
+# TEST 5: Message Retry After Failure
+###############################################################################
+
+### Simulate failed message that should be retried
+# Note: This requires simulating a device failure
+# For testing, mark a message as FAILED in database:
+# UPDATE messages SET status = 'FAILED', error = 'Device timeout' WHERE id = 'msg-id';
+
+# Then call retry endpoint (if implemented):
+# POST {{baseUrl}}/messages/{messageId}/retry
+# X-API-Key: {{apiKey}}
+
+# Expected Behavior:
+# - Retry count incremented
+# - New device selected (if available)
+# - Status changed back to QUEUED
+# - Webhook sent with updated status
+
+###############################################################################
+# TEST 6: Auto-Retry All Failed Messages
+###############################################################################
+
+# This would typically be triggered by a cron job/scheduler
+# For manual testing, you can call the retry service directly
+
+# In Node.js console or test script:
+# const { retryAllFailedMessages } = require('./services/retryService');
+# const results = await retryAllFailedMessages();
+# console.log('Retry results:', results);
+
+###############################################################################
+# TEST 7: Webhook Payload Verification
+###############################################################################
+
+### Expected webhook payload structure:
+# {
+#   "messageId": "uuid-here",
+#   "status": "SENT|DELIVERED|FAILED",
+#   "timestamp": "2026-04-04T10:00:00Z",
+#   "deviceId": "device-uuid" or null,
+#   "toNumber": "+639171234567",
+#   "error": "Error message" (only if FAILED),
+#   "retryCount": 0
+# }
+
+###############################################################################
+# TEST 8: Retry Delays and Exponential Backoff
+###############################################################################
+
+# Default retry schedule:
+# - Retry 1: 30 seconds after failure
+# - Retry 2: 60 seconds after Retry 1
+# - Retry 3: 120 seconds after Retry 2
+# - After Retry 3: Message marked as permanently failed
+
+# To test:
+# 1. Mark message as FAILED
+# 2. Wait 30 seconds
+# 3. Run retryAllFailedMessages()
+# 4. Verify retry attempt 1
+# 5. Wait 60 more seconds
+# 6. Run retryAllFailedMessages()
+# 7. Verify retry attempt 2
+# etc.
+
+###############################################################################
+# TEST 9: TTL Expiration During Retry
+###############################################################################
+
+### Send message with short TTL
+POST {{baseUrl}}/messages/send
+X-API-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639176666666",
+  "body": "Short TTL test",
+  "ttl": 60,
+  "webhookUrl": "https://webhook.site/your-unique-id"
+}
+
+# Then mark as FAILED and wait for TTL to expire
+# Expected Behavior:
+# - shouldRetryMessage() returns false
+# - Message status changed to EXPIRED
+# - Webhook sent with EXPIRED status
+
+###############################################################################
+# TEST 10: Webhook Delivery Tracking
+###############################################################################
+
+### Query webhook delivery history (if endpoint implemented)
+# GET {{baseUrl}}/messages/{messageId}/webhook-deliveries
+# X-API-Key: {{apiKey}}
+
+# Expected Response:
+# [
+#   {
+#     "messageId": "uuid",
+#     "webhookUrl": "https://...",
+#     "success": true,
+#     "attempts": 1,
+#     "statusCode": 200,
+#     "error": null,
+#     "durationMs": 150,
+#     "deliveredAt": "2026-04-04T10:00:00Z"
+#   }
+# ]
+
+###############################################################################
+# DEBUGGING TIPS
+###############################################################################
+
+# 1. Check webhook service logs:
+#    - Look for "Webhook delivery initiated"
+#    - Look for "Webhook delivered successfully" or "Webhook delivery failed"
+
+# 2. Check retry service logs:
+#    - Look for "Message retry successful"
+#    - Look for "Message exceeded max retries"
+
+# 3. Query database for webhook deliveries:
+#    SELECT * FROM webhook_deliveries WHERE message_id = 'your-message-id';
+
+# 4. Query database for message retry history:
+#    SELECT id, status, retry_count, error, failed_at
+#    FROM messages
+#    WHERE id = 'your-message-id';
+
+###############################################################################
+# PERFORMANCE TESTING
+###############################################################################
+
+### Send batch of messages with webhooks
+# Use a loop to send multiple messages and verify all webhooks deliver
+
+# Expected Performance:
+# - Webhook delivery: < 10 seconds timeout
+# - Retry attempts: 3 max
+# - Exponential backoff working correctly
+# - No webhook delivery blocks message processing
