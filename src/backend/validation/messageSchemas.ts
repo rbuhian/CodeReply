@@ -74,6 +74,11 @@ export const SendMessageSchema = z.object({
     })
     .optional()
     .default('NORMAL'),
+
+  preferredCarrier: z
+    .string()
+    .max(50, 'Carrier name must be 50 characters or less')
+    .optional(),
 });
 
 /**

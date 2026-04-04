@@ -1,0 +1,371 @@
+###
+# Message Routing API - Manual Testing
+# Use with VS Code REST Client extension or similar
+# Author: Sheldon (Backend Infrastructure)
+# Date: April 4, 2026
+###
+
+@baseUrl = http://localhost:3000
+@apiKey = Bearer cr_live_YOUR_API_KEY_HERE
+@messageId = MESSAGE_UUID_HERE
+
+###
+# 1. Health Check - Verify server is running
+GET {{baseUrl}}/health
+
+###
+# ============================================================================
+# MESSAGE SENDING ENDPOINTS
+# ============================================================================
+###
+
+###
+# 2. Send SMS Message - Basic
+# Sends a message and automatically selects optimal device
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Hello from CodeReply! This is a test message."
+}
+
+###
+# 3. Send SMS Message - With Webhook
+# Includes webhook URL for delivery status callbacks
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test message with webhook",
+  "webhookUrl": "https://example.com/webhook/sms-status"
+}
+
+###
+# 4. Send SMS Message - With Metadata
+# Attach custom metadata (e.g., order ID, user ID)
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Your order #12345 has been shipped!",
+  "metadata": {
+    "orderId": "12345",
+    "userId": "user-789",
+    "type": "order_notification"
+  }
+}
+
+###
+# 5. Send SMS Message - With Preferred Carrier
+# Route through specific SIM carrier if available
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Message routed through Globe",
+  "preferredCarrier": "Globe"
+}
+
+###
+# 6. Send SMS Message - With Custom TTL
+# Set time-to-live for message expiration
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Urgent message - expires in 5 minutes",
+  "ttl": 300
+}
+
+###
+# 7. Send SMS Message - Long Message
+# Up to 918 characters (6 concatenated SMS segments)
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "This is a longer message that demonstrates concatenated SMS. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+}
+
+###
+# ============================================================================
+# MESSAGE QUERY ENDPOINTS
+# ============================================================================
+###
+
+###
+# 8. List All Messages
+# Get all messages for authenticated subscriber
+GET {{baseUrl}}/v1/messages
+Authorization: {{apiKey}}
+
+###
+# 9. List Messages - Filtered by Status
+# Get only SENT messages
+GET {{baseUrl}}/v1/messages?status=SENT
+Authorization: {{apiKey}}
+
+###
+# 10. List Messages - Pagination
+# Get 10 messages, skip first 20
+GET {{baseUrl}}/v1/messages?limit=10&offset=20
+Authorization: {{apiKey}}
+
+###
+# 11. List Messages - Sorted
+# Sort by queued time, oldest first
+GET {{baseUrl}}/v1/messages?sortBy=queued_at&sortOrder=asc
+Authorization: {{apiKey}}
+
+###
+# 12. List Messages - Complex Filter
+# Filter QUEUED messages, paginated, sorted by newest first
+GET {{baseUrl}}/v1/messages?status=QUEUED&limit=50&offset=0&sortBy=queued_at&sortOrder=desc
+Authorization: {{apiKey}}
+
+###
+# 13. Get Message Details
+# Retrieve full details for a specific message
+GET {{baseUrl}}/v1/messages/{{messageId}}
+Authorization: {{apiKey}}
+
+###
+# ============================================================================
+# ERROR CASES
+# ============================================================================
+###
+
+###
+# Error - Missing API Key
+POST {{baseUrl}}/v1/messages/send
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test"
+}
+
+###
+# Error - Invalid API Key
+POST {{baseUrl}}/v1/messages/send
+Authorization: Bearer cr_live_invalid_key_here
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test"
+}
+
+###
+# Error - Missing Phone Number
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "body": "Test message"
+}
+
+###
+# Error - Invalid Phone Number (Not E.164)
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "1234567890",
+  "body": "Test"
+}
+
+###
+# Error - Missing Message Body
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567"
+}
+
+###
+# Error - Message Too Long
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}
+
+###
+# Error - Invalid Webhook URL
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test",
+  "webhookUrl": "not-a-valid-url"
+}
+
+###
+# Error - Invalid TTL (Too Low)
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test",
+  "ttl": 30
+}
+
+###
+# Error - Invalid TTL (Too High)
+POST {{baseUrl}}/v1/messages/send
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "to": "+639171234567",
+  "body": "Test",
+  "ttl": 100000
+}
+
+###
+# Error - Get Non-existent Message
+GET {{baseUrl}}/v1/messages/00000000-0000-0000-0000-000000000000
+Authorization: {{apiKey}}
+
+###
+# Expected Responses
+###
+
+# Success Response - Send Message (202 Accepted):
+# {
+#   "success": true,
+#   "data": {
+#     "message": {
+#       "id": "message-uuid",
+#       "to": "+639171234567",
+#       "body": "Test message",
+#       "status": "QUEUED",
+#       "ttl": 300,
+#       "queuedAt": "2026-04-04T10:00:00.000Z"
+#     },
+#     "device": {
+#       "id": "device-uuid",
+#       "name": "Samsung Galaxy S21"
+#     }
+#   },
+#   "message": "Message queued for dispatch",
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }
+
+# Success Response - No Devices Available (503 Service Unavailable):
+# {
+#   "success": true,
+#   "data": {
+#     "message": {
+#       "id": "message-uuid",
+#       "to": "+639171234567",
+#       "body": "Test message",
+#       "status": "QUEUED",
+#       "ttl": 300,
+#       "queuedAt": "2026-04-04T10:00:00.000Z"
+#     },
+#     "device": null
+#   },
+#   "message": "Message queued - no devices available. Will dispatch when device comes online.",
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }
+
+# Success Response - List Messages (200 OK):
+# {
+#   "success": true,
+#   "data": {
+#     "messages": [
+#       {
+#         "id": "msg-1",
+#         "to": "+639171234567",
+#         "body": "Test message",
+#         "status": "SENT",
+#         "deviceId": "device-uuid",
+#         "queuedAt": "2026-04-04T10:00:00.000Z",
+#         "dispatchedAt": "2026-04-04T10:00:05.000Z",
+#         "sentAt": "2026-04-04T10:00:10.000Z",
+#         "deliveredAt": null,
+#         "failedAt": null,
+#         "error": null
+#       }
+#     ],
+#     "total": 1,
+#     "limit": 20,
+#     "offset": 0
+#   },
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }
+
+# Success Response - Get Message (200 OK):
+# {
+#   "success": true,
+#   "data": {
+#     "id": "message-uuid",
+#     "to": "+639171234567",
+#     "body": "Test message",
+#     "status": "DELIVERED",
+#     "retryCount": 0,
+#     "ttl": 300,
+#     "webhookUrl": "https://example.com/webhook",
+#     "metadata": { "orderId": "12345" },
+#     "deviceId": "device-uuid",
+#     "queuedAt": "2026-04-04T10:00:00.000Z",
+#     "dispatchedAt": "2026-04-04T10:00:05.000Z",
+#     "sentAt": "2026-04-04T10:00:10.000Z",
+#     "deliveredAt": "2026-04-04T10:00:15.000Z",
+#     "failedAt": null,
+#     "error": null
+#   },
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }
+
+# Error Response - Validation Error (400 Bad Request):
+# {
+#   "error": "Validation Error",
+#   "message": "The request contains invalid data",
+#   "errors": [
+#     {
+#       "field": "to",
+#       "message": "Phone number must be in E.164 format (e.g., +639171234567)"
+#     }
+#   ],
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }
+
+# Error Response - Unauthorized (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Invalid API key",
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }
+
+# Error Response - Not Found (404 Not Found):
+# {
+#   "error": "Not Found",
+#   "message": "Message not found",
+#   "timestamp": "2026-04-04T10:00:00.000Z"
+# }

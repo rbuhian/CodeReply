@@ -198,9 +198,10 @@ app.get('/test/redis', async (req: Request, res: Response) => {
  */
 
 import deviceRoutes from '../routes/deviceRoutes';
+import messageRoutes from '../routes/messageRoutes';
 
 app.use('/v1/devices', deviceRoutes);
-// app.use('/v1/messages', messageRoutes);
+app.use('/v1/messages', messageRoutes);
 // app.use('/v1/auth', authRoutes);
 
 /**
